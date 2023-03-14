@@ -139,8 +139,8 @@ mod plugin {
     use super::*;
 
     /// [SystemLabel] used by the plugin for scheduling its systems.
-    #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, SystemLabel)]
-    pub enum LdtkSystemLabel {
+    #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, SystemSet)]
+    pub enum LdtkSystemSet {
         ProcessAssets,
         LevelSelection,
         LevelSet,
@@ -149,7 +149,7 @@ mod plugin {
     }
 
     /// [StageLabel] for stages added by the plugin.
-    #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, StageLabel)]
+    #[derive(Copy, Clone, Eq, PartialEq, Debug, Hash, SystemSet)]
     pub enum LdtkStage {
         /// Occurs immediately after [CoreStage::Update].
         ///
@@ -191,38 +191,53 @@ mod plugin {
             .add_asset::<assets::LdtkLevel>()
             .init_asset_loader::<assets::LdtkLevelLoader>()
             .add_event::<resources::LevelEvent>()
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                systems::process_ldtk_assets.label(LdtkSystemLabel::ProcessAssets),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                systems::process_ldtk_levels.label(LdtkSystemLabel::LevelSpawning),
-            )
-            .add_system_to_stage(
-                LdtkStage::ProcessApi,
-                systems::worldly_adoption.label(LdtkSystemLabel::Other),
-            )
-            .add_system_to_stage(
-                LdtkStage::ProcessApi,
-                systems::apply_level_selection.label(LdtkSystemLabel::LevelSelection),
-            )
-            .add_system_to_stage(
-                LdtkStage::ProcessApi,
+            .add_system(systems::process_ldtk_assets.in_base_set(CoreSet::PreUpdate))
+            // .add_system_to_stage(
+            //     CoreStage::PreUpdate,
+            //     systems::process_ldtk_assets.label(LdtkSystemSet::ProcessAssets),
+            // )
+            .add_system(systems::process_ldtk_levels.in_base_set(CoreSet::PreUpdate))
+            // .add_system_to_stage(
+            //     CoreStage::PreUpdate,
+            //     systems::process_ldtk_levels.label(LdtkSystemSet::LevelSpawning),
+            // )
+            .add_system(systems::worldly_adoption.in_set(LdtkStage::ProcessApi))
+            // .add_system_to_stage(
+            //     LdtkStage::ProcessApi,
+            //     systems::worldly_adoption.label(LdtkSystemSet::Other),
+            // )
+            .add_system(systems::apply_level_selection.in_set(LdtkSystemSet::LevelSelection))
+            // .add_system_to_stage(
+            //     LdtkStage::ProcessApi,
+            //     systems::apply_level_selection.label(LdtkSystemSet::LevelSelection),
+            // )
+            .add_system(
                 systems::apply_level_set
-                    .label(LdtkSystemLabel::LevelSet)
-                    .after(LdtkSystemLabel::LevelSelection),
+                    .in_set(LdtkStage::ProcessApi)
+                    .after(LdtkSystemSet::LevelSet),
             )
-            .add_system_to_stage(
-                LdtkStage::ProcessApi,
-                systems::clean_respawn_entities.at_end(),
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            // .add_system_to_stage(
+            //     LdtkStage::ProcessApi,
+            //     systems::apply_level_set
+            //         .label(LdtkSystemSet::LevelSet)
+            //         .after(LdtkSystemSet::LevelSelection),
+            // )
+            .add_system(systems::clean_respawn_entities.in_set(LdtkStage::ProcessApi))
+            // .add_system_to_stage(
+            //     LdtkStage::ProcessApi,
+            //     systems::clean_respawn_entities.at_end(),
+            // )
+            .add_system(
                 systems::detect_level_spawned_events
                     .pipe(systems::fire_level_transformed_events)
-                    .label(LdtkSystemLabel::Other),
+                    .in_base_set(CoreSet::PostUpdate),
             )
+            // .add_system_to_stage(
+            //     CoreStage::PostUpdate,
+            //     systems::detect_level_spawned_events
+            //         .pipe(systems::fire_level_transformed_events)
+            //         .label(LdtkSystemSet::Other),
+            // )
             .register_type::<GridCoords>()
             .register_type::<TileMetadata>()
             .register_type::<TileEnumTags>()
